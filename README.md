@@ -1,1 +1,1 @@
-# ww-backend
+This is nodejs backend application for worth-watch

@@ -6,7 +6,11 @@ module.exports.login =  async (req,res) =>{
 }
 
 module.exports.register = async (req, res) => {
-    
-    let all_users = await user_model.register(req.body)
-    res.send(all_users)
+    let response = await user_model.signup(req.body)
+    res.send(response)
+}
+
+module.exports.getUser = async (req, res) => {
+    let response = await user_model.get_user(req, res)
+    res.send(response)
 }

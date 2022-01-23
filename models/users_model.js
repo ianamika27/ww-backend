@@ -1,56 +1,115 @@
 const crypto =  require('crypto')
 
-const config = require('../config/default')
-const db_connection = require('../utils/db_connections')
+const config = require('../config/default');
 
+const mongoose = require('mongoose');
+const moment = require('moment');
+const randify = require('randify');
 
-module.exports.login = async (request_body) => {
-    let response = {}
-    const select_query = "SELECT * FROM users where user_name=? and password=?";
-    let encrypt_password = crypto.createHmac("sha256", config['secret']).update(request_body['password']).digest("hex");
-    const select_params = [request_body['username'],encrypt_password]
-    try{
-        query_response = await db_connection.query(select_query,select_params)
-        if(query_response.length>0){
-            response = request_body
-        }
-    }
-    catch(error){
-        console.error(`user_model.login : ${error}`)
-    }
-    return response
+const {jwtSign} = require('../utils/authhelper')
+
+const userSchema = new mongoose.Schema({
+    name: { type: String, trim: true },
+
+    email: {
+        type: String,
+        match: /[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/,
+        trim: true,
+        index: 1
+    },
+    // This filed also contains numbers previously used
+    phoneNumber: { type: String, trim: true },
+
+    password: { required: true, type: String, },
+
+    googleSignin: { type: String, default: false },
+
+    facebookSignin: { type: String, default: false },
+
+    refreshToken: String,
+
+    isPhoneVerified: { type: Boolean, default: false },
+
+    isEmailVerified: { type: Boolean, default: false },
+
+    otpConf: [{
+        token: Number,
+        expiresAt: Date,
+        generatedAt: { default: Date.now(), type: Date, },
+        isActive: Boolean,
+        verifiedAt: Date
+    }],
+
+    emailConf: [{
+        token: String,
+        generatedAt: { default: Date.now(), type: Date },
+        expiresAt: { default: Date.now(), type: Date },
+        isActive: Boolean,
+        verifiedAt: Date
+    }],
+
+    resetConf: { token: String, generatedAt: Date, expiresAt: Date },
+
+    active: { type: Boolean, default: true },
+
+    profileImage: String,
+
+}, { timestamps: true });
+
+const users_model = module.exports = mongoose.model('User', userSchema);
+
+users_model.findByQuery = (query) => {
+    return users_model.findOne({ ...query, active: true })
 }
 
-module.exports.register = async (request_body) => {
-    let response = {}
-    let encrypt_password = crypto.createHmac("sha256", config['secret']).update(request_body.password).digest("hex");
-    let insert_query = 'INSERT INTO users(create_at,updated_at,user_name,email_address,password,confirm_password,role,active)VALUES(?,?,?,?,?,?,?,?)';
-    let insert_params = [new Date(),new Date(),request_body['username'],request_body['emailaddress'],encrypt_password,encrypt_password,'user',true]
-    try{
-        query_response = await db_connection.query(insert_query,insert_params)
-        if(query_response){
-            request_body['id'] =query_response.insertId
-            response = request_body
-        }
-        console.info(`SUCCESS - user_model.register - User Registered Successfully!!`)
+
+users_model.login = async (data) => {
+    
+    let query = {phoneNumber:data.phoneNumber}
+    
+    const user = await users_model.findOne({ ...query, active: true })
+    //console.log(user)
+    if(!user){
+        return "Invalid email address";
     }
-    catch(error){
-        console.error(`ERROR - user_model.register : ${error}`)
-        response = error
+    console.log(data['password'])
+    let encrypt_password = crypto.createHmac("sha256", config['secret']).update(data['password']).digest("hex");
+    console.log(encrypt_password)
+    console.log(user.password)
+    if(encrypt_password!==user.password){
+        return "Incorrect Password";
     }
 
-    return response;
+    let token = jwtSign(user);
+    return Success(res, "Successfully logged in", {
+        jT: token,
+        user: user._keep("name email phoneNumber facebookSignin googleSignin isPhoneVerified refreshToken createdAt updatedAt")
+    });
 }
 
-module.exports.getAllUsers = async (params) => {
-    let response = '';
-    const select_query = "SELECT * FROM users";
-    try{
-        response = await db_connection.query(select_query)
+users_model.signup = (data) => {
+    const { phoneNumber, password } = data;
+    const generatedAt = moment().format();
+    const expiresAt = moment().add(15, 'minutes').format();
+    const hash = crypto.createHmac("sha256", config['secret']).update(password).digest("hex");
+
+    const query ={phoneNumber:phoneNumber}
+    const user = users_model.findOne({ ...query, active: true }).lean();
+
+    if(user){
+        console.log(user.phoneNumber)
+        return  "Phone number already registered";
     }
-    catch(error){
-        console.log(error)
-        response = error
-    }
-    return response
+    return users_model.create({
+        name: data.name,
+        phoneNumber: data.phoneNumber,
+        isPhoneVerified: false,
+        password: hash,
+        refreshToken: randify('string', 256),
+        otpConf: [{ token: data.otpToken, expiresAt, generatedAt, isVerified: false, isActive: true }],
+    });
+    //return Created(res, "Successfully signed up, please verify otp", { userId: newUser._id });
+}
+users_model.get_user = () => {
+    return users_model.findOne()
 }

@@ -15,7 +15,12 @@
     "crypto": "^1.0.1",
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^8.5.1",
+    "moment": "^2.29.1",
+    "mongoose": "^6.1.7",
     "mysql": "^2.18.1",
-    "q": "^1.5.1"
+    "q": "^1.5.1",
+    "randify": "^1.2.5"
   }
 }

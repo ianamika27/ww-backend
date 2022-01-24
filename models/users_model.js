@@ -9,9 +9,9 @@ const randify = require('randify');
 const {jwtSign} = require('../utils/authhelper')
 
 const userSchema = new mongoose.Schema({
-    name: { type: String, trim: true },
+    username: { type: String, trim: true },
 
-    email: {
+    emailAddress: {
         type: String,
         match: /[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/,
         trim: true,
@@ -62,15 +62,29 @@ users_model.findByQuery = (query) => {
     return users_model.findOne({ ...query, active: true })
 }
 
+users_model.createAccount = async (data) => {
+    
+    // const generatedAt = moment().format();
+    // const expiresAt = moment().add(15, 'minutes').format();
+    const passwordEncrypted = crypto.createHmac("sha256", process.env.SECRET).update(data.password).digest("hex");
+
+    return users_model.create({
+        username: data.username,
+        emailAddress:data.emailAddress,
+        password: passwordEncrypted
+        // refreshToken: randify('string', 256),
+        // otpConf: [{ token: data.otpToken, expiresAt, generatedAt, isVerified: false, isActive: true }],
+    });
+}
 
 users_model.login = async (data) => {
     
-    let query = {phoneNumber:data.phoneNumber}
+    let query = {emailAddress:data.emailAddress}
     
-    const user = await users_model.findOne({ ...query, active: true })
+    const user = await users_model.findByQuery(query).lean()
    
     if(!user){
-        return "Invalid email address";
+        return "Email Address not registered.";
     }
     
     let encrypt_password = crypto.createHmac("sha256", config['secret']).update(data['password']).digest("hex");
@@ -83,32 +97,25 @@ users_model.login = async (data) => {
     return {
         message: "Successfully logged in",
         jT: token,
-        user: user
+        user: {username:user.username,id:user._id}
     };
 }
 
-users_model.signup = (data) => {
-    const { phoneNumber, password } = data;
-    const generatedAt = moment().format();
-    const expiresAt = moment().add(15, 'minutes').format();
-    const hash = crypto.createHmac("sha256", config['secret']).update(password).digest("hex");
-
-    const query ={phoneNumber:phoneNumber}
-    const user = users_model.findOne({ ...query, active: true }).lean();
+users_model.signup = async (data) => {
+    const { emailAddress } = data;
+   
+    const query = {emailAddress:emailAddress}
+    
+    const user = await users_model.findByQuery(query).lean()
 
     if(user){
-        console.log(user.phoneNumber)
-        return  "Phone number already registered";
+        return  "Email already registered";
     }
-    return users_model.create({
-        name: data.name,
-        phoneNumber: data.phoneNumber,
-        isPhoneVerified: false,
-        password: hash,
-        refreshToken: randify('string', 256),
-        otpConf: [{ token: data.otpToken, expiresAt, generatedAt, isVerified: false, isActive: true }],
-    });
-    //return Created(res, "Successfully signed up, please verify otp", { userId: newUser._id });
+
+    const [newUser] = await Promise.all([users_model.createAccount(data)]);
+
+    return {"message": "Successfully Registered",  userId: newUser._id };
+
 }
 users_model.get_user = () => {
     return users_model.findOne()

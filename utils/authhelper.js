@@ -5,7 +5,7 @@ const publicKey = process.env.PUBLIC_KEY;
 const { signOptions,verifyOptions} = require('../utils/authOptions')
 
 const jwtSign = (data) => {
-    return jwt.sign({ id: data._id, phoneNumber: data.phoneNumber }, Buffer.from(privateKey, 'base64'), signOptions);
+    return jwt.sign({ id: data._id, emailAddress: data.emailAddress }, Buffer.from(privateKey, 'base64'), signOptions);
 }
 
 const jwtDecode = (token) => {

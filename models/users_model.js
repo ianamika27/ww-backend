@@ -68,23 +68,23 @@ users_model.login = async (data) => {
     let query = {phoneNumber:data.phoneNumber}
     
     const user = await users_model.findOne({ ...query, active: true })
-    //console.log(user)
+   
     if(!user){
         return "Invalid email address";
     }
-    console.log(data['password'])
+    
     let encrypt_password = crypto.createHmac("sha256", config['secret']).update(data['password']).digest("hex");
-    console.log(encrypt_password)
-    console.log(user.password)
+    
     if(encrypt_password!==user.password){
         return "Incorrect Password";
     }
 
     let token = jwtSign(user);
-    return Success(res, "Successfully logged in", {
+    return {
+        message: "Successfully logged in",
         jT: token,
-        user: user._keep("name email phoneNumber facebookSignin googleSignin isPhoneVerified refreshToken createdAt updatedAt")
-    });
+        user: user
+    };
 }
 
 users_model.signup = (data) => {

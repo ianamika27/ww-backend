@@ -1,14 +1,20 @@
 require('dotenv').config({ path: `.env` });
 var express = require('express');
+const mustacheExpress = require('mustache-express');
 var cors  =  require('cors')
+const passport = require('passport');
+
+require('./config/passport/google.setup');
+require('./config/passport/jwt.setup');
+require('./config/passport/local.setup');
+
 var app = express();
 
 app.use(cors({origin: 'http://localhost:3000'}));
 app.use(express.json({ limit: '50mb' }));
-
-const PORT = process.env.PORT || 9001;
-
-
+app.engine('html', mustacheExpress());
+app.use(express.urlencoded({ extended: false }));
+app.use(passport.initialize());
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header(
@@ -22,11 +28,17 @@ app.use((req, res, next) => {
     next();
 });
   
-var usersRouter = require('./routes/users_route');
+const usersRouter = require('./routes/users_route');
 app.use('/api/v1/users',usersRouter);
 
-var searchRouter =  require('./routes/search_routes')
+const searchRouter =  require('./routes/search_routes')
 app.use('/api/v1/search',searchRouter);
+
+const AuthController = require('./controllers/Auth')
+app.use('/api/auth',AuthController);
+
+const UserController = require('./controllers/User')
+app.use('/api/user',UserController)
 
 //To through 404 error
 app.use((req, res, next) => {

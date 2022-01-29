@@ -1,12 +1,15 @@
 require('dotenv').config({ path: `.env` });
-var express = require('express');
-const mustacheExpress = require('mustache-express');
-var cors  =  require('cors')
-const passport = require('passport');
 
-require('./config/passport/google.setup');
+const cors  =  require('cors');
+const express = require('express');
+const passport = require('passport');
+const mustacheExpress = require('mustache-express');
+
+
 require('./config/passport/jwt.setup');
 require('./config/passport/local.setup');
+require('./config/passport/google.setup');
+require('./config/passport/facebook.setup');
 
 var app = express();
 
@@ -28,20 +31,18 @@ app.use((req, res, next) => {
     next();
 });
   
-const usersRouter = require('./routes/users_route');
-app.use('/api/v1/users',usersRouter);
+// const usersRouter = require('./routes/users_route');
+// app.use('/api/v1/users',usersRouter);
 
-const searchRouter =  require('./routes/search_routes')
-app.use('/api/v1/search',searchRouter);
+const authRouter = require('./routes/Auth')
+app.use('/api/v1/auth',authRouter);
 
-const AuthController = require('./controllers/Auth')
-app.use('/api/auth',AuthController);
-
-const UserController = require('./controllers/User')
-app.use('/api/user',UserController)
+// const UserController = require('./controllers/User')
+// app.use('/api/user',UserController)
 
 //To through 404 error
 app.use((req, res, next) => {
+    console.log(req)
     const error = new Error('The page you are looking for not found');
     error.status = 404;
     next(error);
